@@ -15,4 +15,4 @@ This project inherit the property of our [pytorch implementation of faster r-cnn
 
 ## Progress
 
-Performance testing, finished soon!
+Testing performance, will be finished soon!
