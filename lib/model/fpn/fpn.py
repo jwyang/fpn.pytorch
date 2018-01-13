@@ -36,9 +36,9 @@ class _FPN(nn.Module):
 
         # NOTE: the original paper used pool_size = 7 for cls branch, and 14 for mask branch, to save the
         # computation time, we first use 14 as the pool_size, and then do stride=2 pooling for cls branch.
-        self.RCNN_roi_pool = _RoIPooling(cfg.POOLING_SIZE * 2, cfg.POOLING_SIZE * 2, 1.0/16.0)
-        self.RCNN_roi_align = RoIAlignAvg(cfg.POOLING_SIZE * 2, cfg.POOLING_SIZE * 2, 1.0/16.0)
-        self.grid_size = cfg.POOLING_SIZE * 2 * 2 if cfg.CROP_RESIZE_WITH_MAX_POOL else cfg.POOLING_SIZE * 2
+        self.RCNN_roi_pool = _RoIPooling(cfg.POOLING_SIZE, cfg.POOLING_SIZE, 1.0/16.0)
+        self.RCNN_roi_align = RoIAlignAvg(cfg.POOLING_SIZE, cfg.POOLING_SIZE, 1.0/16.0)
+        self.grid_size = cfg.POOLING_SIZE * 2 if cfg.CROP_RESIZE_WITH_MAX_POOL else cfg.POOLING_SIZE
         self.RCNN_roi_crop = _RoICrop()
 
     def _init_weights(self):
@@ -63,13 +63,21 @@ class _FPN(nn.Module):
                 m.weight.data.normal_(1.0, 0.02)
                 m.bias.data.fill_(0)
 
+        normal_init(self.RCNN_toplayer, 0, 0.01, cfg.TRAIN.TRUNCATED)
+        normal_init(self.RCNN_smooth1, 0, 0.01, cfg.TRAIN.TRUNCATED)
+        normal_init(self.RCNN_smooth2, 0, 0.01, cfg.TRAIN.TRUNCATED)
+        normal_init(self.RCNN_smooth3, 0, 0.01, cfg.TRAIN.TRUNCATED)
+        normal_init(self.RCNN_latlayer1, 0, 0.01, cfg.TRAIN.TRUNCATED)
+        normal_init(self.RCNN_latlayer2, 0, 0.01, cfg.TRAIN.TRUNCATED)
+        normal_init(self.RCNN_latlayer3, 0, 0.01, cfg.TRAIN.TRUNCATED)
+
         normal_init(self.RCNN_rpn.RPN_Conv, 0, 0.01, cfg.TRAIN.TRUNCATED)
         normal_init(self.RCNN_rpn.RPN_cls_score, 0, 0.01, cfg.TRAIN.TRUNCATED)
         normal_init(self.RCNN_rpn.RPN_bbox_pred, 0, 0.01, cfg.TRAIN.TRUNCATED)
         normal_init(self.RCNN_cls_score, 0, 0.01, cfg.TRAIN.TRUNCATED)
         normal_init(self.RCNN_bbox_pred, 0, 0.001, cfg.TRAIN.TRUNCATED)
         normal_init(self.RCNN_roi_feat_ds, 0, 0.01, cfg.TRAIN.TRUNCATED)
-        weights_init(self.RCNN_top, 0, 0.01, cfg.TRAIN.TRUNCATED)        
+        weights_init(self.RCNN_top, 0, 0.01, cfg.TRAIN.TRUNCATED)
 
     def create_architecture(self):
         self._init_modules()
@@ -121,31 +129,32 @@ class _FPN(nn.Module):
             for i, l in enumerate(range(2, 6)):
                 if (roi_level == l).sum() == 0:
                     continue
-                idx_l = (roi_level == l).nonzero().squeeze()                
+                idx_l = (roi_level == l).nonzero().squeeze()
                 box_to_levels.append(idx_l)
                 scale = feat_maps[i].size(2) / im_info[0][0]
                 feat = self.RCNN_roi_align(feat_maps[i], rois[idx_l], scale)
                 roi_pool_feats.append(feat)
             roi_pool_feat = torch.cat(roi_pool_feats, 0)
             box_to_level = torch.cat(box_to_levels, 0)
-            idx_sorted, order = torch.sort(box_to_level)        
+            idx_sorted, order = torch.sort(box_to_level)
             roi_pool_feat = roi_pool_feat[order]
+
         elif cfg.POOLING_MODE == 'pool':
             roi_pool_feats = []
-            box_to_levels = []            
+            box_to_levels = []
             for i, l in enumerate(range(2, 6)):
                 if (roi_level == l).sum() == 0:
-                    continue                
+                    continue
                 idx_l = (roi_level == l).nonzero().squeeze()
                 box_to_levels.append(idx_l)
-                scale = feat_maps[i].size(2) / im_info[0][0]          
+                scale = feat_maps[i].size(2) / im_info[0][0]
                 feat = self.RCNN_roi_pool(feat_maps[i], rois[idx_l], scale)
                 roi_pool_feats.append(feat)
             roi_pool_feat = torch.cat(roi_pool_feats, 0)
             box_to_level = torch.cat(box_to_levels, 0)
-            idx_sorted, order = torch.sort(box_to_level)        
+            idx_sorted, order = torch.sort(box_to_level)
             roi_pool_feat = roi_pool_feat[order]
-
+            
         return roi_pool_feat
 
     def forward(self, im_data, im_info, gt_boxes, num_boxes):
@@ -175,7 +184,7 @@ class _FPN(nn.Module):
 
         rpn_feature_maps = [p2, p3, p4, p5, p6]
         mrcnn_feature_maps = [p2, p3, p4, p5]
-        
+
         rois, rpn_loss_cls, rpn_loss_bbox = self.RCNN_rpn(rpn_feature_maps, im_info, gt_boxes, num_boxes)
 
         # if it is training phrase, then use ground trubut bboxes for refining
@@ -183,8 +192,8 @@ class _FPN(nn.Module):
             roi_data = self.RCNN_proposal_target(rois, gt_boxes, num_boxes)
             rois, rois_label, gt_assign, rois_target, rois_inside_ws, rois_outside_ws = roi_data
 
-            ## NOTE: additionally, normalize proposals to range [0, 1], 
-            #        this is necessary so that the following roi pooling 
+            ## NOTE: additionally, normalize proposals to range [0, 1],
+            #        this is necessary so that the following roi pooling
             #        is correct on different feature maps
             # rois[:, :, 1::2] /= im_info[0][1]
             # rois[:, :, 2::2] /= im_info[0][0]
@@ -205,8 +214,8 @@ class _FPN(nn.Module):
             rois_inside_ws = Variable(rois_inside_ws.view(-1, rois_inside_ws.size(2)))
             rois_outside_ws = Variable(rois_outside_ws.view(-1, rois_outside_ws.size(2)))
         else:
-            ## NOTE: additionally, normalize proposals to range [0, 1], 
-            #        this is necessary so that the following roi pooling 
+            ## NOTE: additionally, normalize proposals to range [0, 1],
+            #        this is necessary so that the following roi pooling
             #        is correct on different feature maps
             # rois[:, :, 1::2] /= im_info[0][1]
             # rois[:, :, 2::2] /= im_info[0][0]
@@ -224,12 +233,9 @@ class _FPN(nn.Module):
             rois_pos = Variable(rois[pos_id])
             rois = Variable(rois)
 
-        # get the rpn loss.
-        rpn_loss = rpn_loss_cls + rpn_loss_bbox
-
         # pooling features based on rois, output 14x14 map
-        roi_pool_feat = self._PyramidRoI_Feat(mrcnn_feature_maps, rois, im_info)        
-        
+        roi_pool_feat = self._PyramidRoI_Feat(mrcnn_feature_maps, rois, im_info)
+
         # feed pooled features to top model
         pooled_feat = self._head_to_tail(roi_pool_feat)
 
@@ -246,23 +252,20 @@ class _FPN(nn.Module):
         cls_score = self.RCNN_cls_score(pooled_feat)
         cls_prob = F.softmax(cls_score)
 
-        self.RCNN_loss_cls = 0
-        self.RCNN_loss_bbox = 0
+        RCNN_loss_cls = 0
+        RCNN_loss_bbox = 0
 
         if self.training:
-            self.fg_cnt = torch.sum(rois_label.data.ne(0))
-            self.bg_cnt = rois_label.data.numel() - self.fg_cnt
-
             # loss (cross entropy) for object classification
-            self.RCNN_loss_cls = F.cross_entropy(cls_score, rois_label)
+            RCNN_loss_cls = F.cross_entropy(cls_score, rois_label)
             # loss (l1-norm) for bounding box regression
-            self.RCNN_loss_bbox = _smooth_l1_loss(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)
-
-
-        rcnn_loss = self.RCNN_loss_cls + self.RCNN_loss_bbox
+            RCNN_loss_bbox = _smooth_l1_loss(bbox_pred, rois_target, rois_inside_ws, rois_outside_ws)
 
         rois = rois.view(batch_size, -1, rois.size(1))
         cls_prob = cls_prob.view(batch_size, -1, cls_prob.size(1))
         bbox_pred = bbox_pred.view(batch_size, -1, bbox_pred.size(1))
 
-        return rois, cls_prob, bbox_pred, rpn_loss, rcnn_loss
+        if self.training:
+            rois_label = rois_label.view(batch_size, -1)
+
+        return rois, cls_prob, bbox_pred, rpn_loss_cls, rpn_loss_bbox, RCNN_loss_cls, RCNN_loss_bbox, rois_label

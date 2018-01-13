@@ -72,6 +72,7 @@ class _ProposalLayer_FPN(nn.Module):
         anchors = torch.from_numpy(generate_anchors_all_pyramids(self._fpn_scales, self._anchor_ratios, 
                 feat_shapes, self._fpn_feature_strides, self._fpn_anchor_stride)).type_as(scores)
         num_anchors = anchors.size(0)
+
         anchors = anchors.view(1, num_anchors, 4).expand(batch_size, num_anchors, 4)
 
         # Convert anchors into proposals via bbox transformations

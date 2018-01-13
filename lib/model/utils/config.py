@@ -291,8 +291,6 @@ __C.MAX_NUM_GT_BOXES = 20
 # Anchor scales for RPN
 __C.ANCHOR_SCALES = [8,16,32]
 
-# Anchor scales for RPN_FPN
-__C.FPN_ANCHOR_SCALES = (32, 64, 128, 256, 512)
 
 # Anchor ratios for RPN
 __C.ANCHOR_RATIOS = [0.5,1,2]
@@ -300,8 +298,11 @@ __C.ANCHOR_RATIOS = [0.5,1,2]
 # Feature stride for RPN
 __C.FEAT_STRIDE = [16, ]
 
+# Anchor scales for RPN_FPN
+__C.FPN_ANCHOR_SCALES = [32, 64, 128, 256, 512]
 # Feature stride for RPN_FPN
 __C.FPN_FEAT_STRIDES = [4, 8, 16, 32, 64]
+# Anchor stride for RPN_FPN
 __C.FPN_ANCHOR_STRIDE = 1
 
 __C.CUDA = False

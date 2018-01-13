@@ -137,12 +137,18 @@ def generate_anchors_single_pyramid(scales, ratios, shape, feature_stride, ancho
     box_widths, box_centers_x = np.meshgrid(widths, shifts_x)
     box_heights, box_centers_y = np.meshgrid(heights, shifts_y)
 
-    # Reshape to get a list of (y, x) and a list of (h, w)
-    box_centers = np.stack(
-        [box_centers_y, box_centers_x], axis=2).reshape([-1, 2])
-    box_sizes = np.stack([box_heights, box_widths], axis=2).reshape([-1, 2])
+    # # Reshape to get a list of (y, x) and a list of (h, w)
+    # box_centers = np.stack(
+    #     [box_centers_y, box_centers_x], axis=2).reshape([-1, 2])
+    # box_sizes = np.stack([box_heights, box_widths], axis=2).reshape([-1, 2])
 
-    # Convert to corner coordinates (y1, x1, y2, x2)
+    # NOTE: the original order is  (y, x), we changed it to (x, y) for our code
+    # Reshape to get a list of (x, y) and a list of (w, h)
+    box_centers = np.stack(
+        [box_centers_x, box_centers_y], axis=2).reshape([-1, 2])
+    box_sizes = np.stack([box_widths, box_heights], axis=2).reshape([-1, 2])
+
+    # Convert to corner coordinates (x1, y1, x2, y2)
     boxes = np.concatenate([box_centers - 0.5 * box_sizes,
                             box_centers + 0.5 * box_sizes], axis=1)
     return boxes

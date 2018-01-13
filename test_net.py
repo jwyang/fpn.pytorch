@@ -1,5 +1,5 @@
 # --------------------------------------------------------
-# Pytorch Mask R-CNN
+# Pytorch FPN implementation
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Jianwei Yang, based on code from faster R-CNN
 # --------------------------------------------------------
@@ -29,10 +29,9 @@ from model.utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
 from model.rpn.bbox_transform import clip_boxes
 from model.nms.nms_wrapper import nms
 from model.rpn.bbox_transform import bbox_transform_inv
-from model.utils.net_utils import vis_detections, vis_det_and_mask
+from model.utils.net_utils import vis_detections
 
-from model.mask_rcnn.vgg16 import vgg16
-from model.mask_rcnn.resnet import resnet
+from model.fpn.resnet import resnet
 
 import pdb
 
@@ -142,26 +141,26 @@ if __name__ == '__main__':
   if not os.path.exists(input_dir):
     raise Exception('There is no input directory for loading network from ' + input_dir)
   load_name = os.path.join(input_dir,
-    'mask_rcnn_{}_{}_{}.pth'.format(args.checksession, args.checkepoch, args.checkpoint))
+    'fpn_{}_{}_{}.pth'.format(args.checksession, args.checkepoch, args.checkpoint))
 
   # initilize the network here.
   if args.net == 'vgg16':
-    maskRCNN = vgg16(imdb.classes, pretrained=True, class_agnostic=args.class_agnostic)
+    fpn = vgg16(imdb.classes, pretrained=True, class_agnostic=args.class_agnostic)
   elif args.net == 'res101':
-    maskRCNN = resnet(imdb.classes, 101, pretrained=True, class_agnostic=args.class_agnostic)
+    fpn = resnet(imdb.classes, 101, pretrained=True, class_agnostic=args.class_agnostic)
   elif args.net == 'res50':
-    maskRCNN = resnet(imdb.classes, 50, pretrained=True, class_agnostic=args.class_agnostic)
+    fpn = resnet(imdb.classes, 50, pretrained=True, class_agnostic=args.class_agnostic)
   elif args.net == 'res152':
-    maskRCNN = resnet(imdb.classes, 152, pretrained=True, class_agnostic=args.class_agnostic)
+    fpn = resnet(imdb.classes, 152, pretrained=True, class_agnostic=args.class_agnostic)
   else:
     print("network is not defined")
     pdb.set_trace()
 
-  maskRCNN.create_architecture()
+  fpn.create_architecture()
 
   print("load checkpoint %s" % (load_name))
   checkpoint = torch.load(load_name)
-  maskRCNN.load_state_dict(checkpoint['model'])
+  fpn.load_state_dict(checkpoint['model'])
   if 'pooling_mode' in checkpoint.keys():
     cfg.POOLING_MODE = checkpoint['pooling_mode']
 
@@ -171,7 +170,6 @@ if __name__ == '__main__':
   im_info = torch.FloatTensor(1)
   num_boxes = torch.LongTensor(1)
   gt_boxes = torch.FloatTensor(1)
-  mask_data = torch.FloatTensor(1)
 
   # ship to cuda
   if args.cuda:
@@ -179,20 +177,18 @@ if __name__ == '__main__':
     im_info = im_info.cuda()
     num_boxes = num_boxes.cuda()
     gt_boxes = gt_boxes.cuda()
-    mask_data = mask_data.cuda()
 
   # make variable
   im_data = Variable(im_data)
   im_info = Variable(im_info)
   num_boxes = Variable(num_boxes)
   gt_boxes = Variable(gt_boxes)
-  mask_data = Variable(mask_data)
 
   if args.cuda:
     cfg.CUDA = True
 
   if args.cuda:
-    maskRCNN.cuda()
+    fpn.cuda()
 
   start = time.time()
   max_per_image = 100
@@ -221,7 +217,7 @@ if __name__ == '__main__':
   _t = {'im_detect': time.time(), 'misc': time.time()}
   det_file = os.path.join(output_dir, 'detections.pkl')
 
-  maskRCNN.eval()
+  fpn.eval()
   empty_array = np.transpose(np.array([[],[],[],[],[]]), (1,0))
   for i in range(num_images):
       data = data_iter.next()
@@ -229,13 +225,13 @@ if __name__ == '__main__':
       im_info.data.resize_(data[1].size()).copy_(data[1])
       gt_boxes.data.resize_(data[2].size()).copy_(data[2])
       num_boxes.data.resize_(data[3].size()).copy_(data[3])
-      mask_data.data.resize_(data[4].size()).copy_(data[4])
 
       det_tic = time.time()
-      rois, cls_prob, bbox_pred, mask_pred, rpn_loss, rcnn_loss = maskRCNN(im_data, mask_data, im_info, gt_boxes, num_boxes)
+      rois, cls_prob, bbox_pred, \
+          _, _, _, _, _ = fpn(im_data, im_info, gt_boxes, num_boxes)
+
       scores = cls_prob.data
       boxes = rois.data[:, :, 1:5]
-      mask_pred = mask_pred[0].data
 
       if cfg.TEST.BBOX_REG:
           # Apply bounding-box regression deltas
@@ -280,13 +276,10 @@ if __name__ == '__main__':
 
             cls_dets = torch.cat((cls_boxes, cls_scores), 1)
             cls_dets = cls_dets[order]
-            mask_pred = mask_pred[order]
             keep = nms(cls_dets, cfg.TEST.NMS)
             cls_dets = cls_dets[keep.view(-1).long()]
-            mask_kept = mask_pred[keep.view(-1).long()][:, j, :, :]
             if vis:
-              # im2show = vis_detections(im2show, imdb.classes[j], cls_dets.cpu().numpy(), 0.3)
-              im2show = vis_det_and_mask(im2show, imdb.classes[j], cls_dets.cpu().numpy(), mask_kept.cpu().numpy(), 0.3)
+              im2show = vis_detections(im2show, imdb.classes[j], cls_dets.cpu().numpy(), 0.3)
             all_boxes[j][i] = cls_dets.cpu().numpy()
           else:
             all_boxes[j][i] = empty_array
@@ -310,7 +303,7 @@ if __name__ == '__main__':
 
       if vis:
           cv2.imwrite('images/result%d.png' % (i), im2show)
-          #pdb.set_trace()
+          pdb.set_trace()
           #cv2.imshow('test', im2show)
           #cv2.waitKey(0)
 

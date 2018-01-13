@@ -298,8 +298,19 @@ class resnet(_FPN):
       self.RCNN_layer0.eval()
       self.RCNN_layer1.eval()
       self.RCNN_layer2.train()
-      self.RCNN_layer3.train()
+      self.RCNN_layer3.train()      
+      self.RCNN_layer4.train()
 
+      self.RCNN_smooth1.train()
+      self.RCNN_smooth2.train()
+      self.RCNN_smooth3.train()
+
+      self.RCNN_latlayer1.train()
+      self.RCNN_latlayer2.train()
+      self.RCNN_latlayer3.train()      
+
+      self.RCNN_toplayer.train()
+      
       def set_bn_eval(m):
         classname = m.__class__.__name__
         if classname.find('BatchNorm') != -1:
@@ -312,7 +323,6 @@ class resnet(_FPN):
       self.RCNN_layer4.apply(set_bn_eval)
 
   def _head_to_tail(self, pool5):
-    pool_ds = self.RCNN_roi_feat_ds(pool5)
-    block5 = self.RCNN_top(pool_ds)
+    block5 = self.RCNN_top(pool5)
     fc7 = block5.mean(3).mean(2)
     return fc7

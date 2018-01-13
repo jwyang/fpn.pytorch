@@ -170,25 +170,25 @@ if __name__ == '__main__':
   if args.dataset == "pascal_voc":
       args.imdb_name = "voc_2007_trainval"
       args.imdbval_name = "voc_2007_test"
-      args.set_cfgs = ['ANCHOR_SCALES', '[8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '20']
+      args.set_cfgs = ['FPN_ANCHOR_SCALES', '[32, 64, 128, 256, 512]', 'FPN_FEAT_STRIDES', '[4, 8, 16, 32, 64]', 'MAX_NUM_GT_BOXES', '20']
   elif args.dataset == "pascal_voc_0712":
       args.imdb_name = "voc_2007_trainval+voc_2012_trainval"
       args.imdbval_name = "voc_2007_test"
-      args.set_cfgs = ['ANCHOR_SCALES', '[8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '20']
+      args.set_cfgs = ['FPN_ANCHOR_SCALES', '[32, 64, 128, 256, 512]', 'FPN_FEAT_STRIDES', '[4, 8, 16, 32, 64]', 'MAX_NUM_GT_BOXES', '20']
   elif args.dataset == "coco":
       args.imdb_name = "coco_2014_train+coco_2014_valminusminival"
       args.imdbval_name = "coco_2014_minival"
-      args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '30']
+      args.set_cfgs = ['FPN_ANCHOR_SCALES', '[32, 64, 128, 256, 512]', 'FPN_FEAT_STRIDES', '[4, 8, 16, 32, 64]', 'MAX_NUM_GT_BOXES', '20']
   elif args.dataset == "imagenet":
       args.imdb_name = "imagenet_train"
       args.imdbval_name = "imagenet_val"
-      args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '30']
+      args.set_cfgs = ['FPN_ANCHOR_SCALES', '[32, 64, 128, 256, 512]', 'FPN_FEAT_STRIDES', '[4, 8, 16, 32, 64]', 'MAX_NUM_GT_BOXES', '30']
   elif args.dataset == "vg":
       # train sizes: train, smalltrain, minitrain
       # train scale: ['150-50-20', '150-50-50', '500-150-80', '750-250-150', '1750-700-450', '1600-400-20']
       args.imdb_name = "vg_150-50-50_minitrain"
       args.imdbval_name = "vg_150-50-50_minival"
-      args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '50']
+      args.set_cfgs = ['FPN_ANCHOR_SCALES', '[32, 64, 128, 256, 512]', 'FPN_FEAT_STRIDES', '[4, 8, 16, 32, 64]', 'MAX_NUM_GT_BOXES', '50']
 
   args.cfg_file = "cfgs/{}_ls.yml".format(args.net) if args.lscale else "cfgs/{}.yml".format(args.net)
 
@@ -325,8 +325,13 @@ if __name__ == '__main__':
       num_boxes.data.resize_(data[3].size()).copy_(data[3])
 
       FPN.zero_grad()
-      _, _, _, rpn_loss, rcnn_loss = FPN(im_data, im_info, gt_boxes, num_boxes)
-      loss = (rpn_loss.sum() + rcnn_loss.sum()) / rpn_loss.size(0)
+      _, _, _, rpn_loss_cls, rpn_loss_box, \
+               RCNN_loss_cls, RCNN_loss_bbox, \
+               roi_labels = FPN(im_data, im_info, gt_boxes, num_boxes)
+
+      loss = rpn_loss_cls.sum() + rpn_loss_box.sum() \
+           + RCNN_loss_cls.sum() + RCNN_loss_bbox.sum()
+      loss /= rpn_loss_cls.size(0)
       loss_temp += loss.data[0]
 
       # backward
@@ -340,19 +345,19 @@ if __name__ == '__main__':
           loss_temp /= args.disp_interval
 
         if args.mGPUs:
-          loss_rpn_cls = 0.
-          loss_rpn_box = 0.
-          loss_rcnn_cls = 0.
-          loss_rcnn_box = 0.
-          fg_cnt = 0.
-          bg_cnt = 0.
+          loss_rpn_cls = rpn_loss_cls.mean().data[0]
+          loss_rpn_box = rpn_loss_box.mean().data[0]
+          loss_rcnn_cls = RCNN_loss_cls.mean().data[0]
+          loss_rcnn_box = RCNN_loss_bbox.mean().data[0]
+          fg_cnt = torch.sum(roi_labels.data.ne(0))
+          bg_cnt = roi_labels.data.numel() - fg_cnt
         else:
           loss_rpn_cls = FPN.RCNN_rpn.rpn_loss_cls.data[0]
           loss_rpn_box = FPN.RCNN_rpn.rpn_loss_box.data[0]
           loss_rcnn_cls = FPN.RCNN_loss_cls.data[0]
           loss_rcnn_box = FPN.RCNN_loss_bbox.data[0]
-          fg_cnt = FPN.fg_cnt
-          bg_cnt = FPN.bg_cnt
+          fg_cnt = torch.sum(roi_labels.data.ne(0))
+          bg_cnt = roi_labels.data.numel() - fg_cnt
 
         _print("[session %d][epoch %2d][iter %4d] loss: %.4f, lr: %.2e" \
                                 % (args.session, epoch, step, loss_temp, lr), logging)
