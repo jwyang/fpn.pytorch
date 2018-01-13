@@ -24,8 +24,6 @@ from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from pycocotools import mask as COCOmask
 
-import pdb
-
 class coco(imdb):
   def __init__(self, image_set, year):
     imdb.__init__(self, 'coco_' + year + '_' + image_set)
@@ -111,52 +109,26 @@ class coco(imdb):
       'Path does not exist: {}'.format(image_path)
     return image_path
 
-  # get mask given the image index i
-  def masks_at(self, i):  
-    
-    nMasks = len(self._gt_roidb[i]['segs'])    
-    height, width = self._gt_roidb[i]['height'], self._gt_roidb[i]['width']
-    mask_ovlap = np.zeros((height, width), dtype=np.uint8)
-    masks = np.zeros((nMasks, height, width), dtype=np.uint8)
-
-    for j in range(nMasks):
-      cat_id = self._gt_roidb[i]['gt_classes'][j]
-      segm = self._gt_roidb[i]['segs'][j]
-      if type(segm) == list:
-        # polygon -- a single object might consist of multiple parts
-        # we merge all parts into one mask rle code
-        rles = COCOmask.frPyObjects(segm, height, width)
-        rle = COCOmask.merge(rles)
-        rle = COCOmask.merge(rles)
-        m = COCOmask.decode(rle)
-        masks[j] = m        
-        m = m * cat_id
-        mask_ovlap[m > 0] = m[m > 0]
-
-    return masks, mask_ovlap
-
   def gt_roidb(self):
     """
     Return the database of ground-truth regions of interest.
     This function loads/saves from/to a cache file to speed up future calls.
-    """    
+    """
     cache_file = osp.join(self.cache_path, self.name + '_gt_roidb.pkl')
     if osp.exists(cache_file):
       with open(cache_file, 'rb') as fid:
         roidb = pickle.load(fid)
       print('{} gt roidb loaded from {}'.format(self.name, cache_file))
-      self._gt_roidb = roidb
       return roidb
 
     gt_roidb = [self._load_coco_annotation(index)
                 for index in self._image_index]
-    self._gt_roidb = gt_roidb
 
     with open(cache_file, 'wb') as fid:
       pickle.dump(gt_roidb, fid, pickle.HIGHEST_PROTOCOL)
     print('wrote gt roidb to {}'.format(cache_file))
     return gt_roidb
-    
+
   def _load_coco_annotation(self, index):
     """
     Loads COCO bounding-box instance annotations. Crowd instances are
@@ -186,20 +158,18 @@ class coco(imdb):
     gt_classes = np.zeros((num_objs), dtype=np.int32)
     overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
     seg_areas = np.zeros((num_objs), dtype=np.float32)
-    segs = []
+
     # Lookup table to map from COCO category ids to our internal class
     # indices
     coco_cat_id_to_class_ind = dict([(self._class_to_coco_cat_id[cls],
                                       self._class_to_ind[cls])
                                      for cls in self._classes[1:]])
 
-
     for ix, obj in enumerate(objs):
       cls = coco_cat_id_to_class_ind[obj['category_id']]
       boxes[ix, :] = obj['clean_bbox']
       gt_classes[ix] = cls
       seg_areas[ix] = obj['area']
-      segs.append(obj['segmentation'])
       if obj['iscrowd']:
         # Set overlap to -1 for all classes for crowd objects
         # so they will be excluded during training
@@ -209,15 +179,13 @@ class coco(imdb):
 
     ds_utils.validate_boxes(boxes, width=width, height=height)
     overlaps = scipy.sparse.csr_matrix(overlaps)
-
     return {'width': width,
             'height': height,
             'boxes': boxes,
             'gt_classes': gt_classes,
             'gt_overlaps': overlaps,
             'flipped': False,
-            'seg_areas': seg_areas,
-            'segs': segs}
+            'seg_areas': seg_areas}
 
   def _get_widths(self):
     return [r['width'] for r in self.roidb]
@@ -235,7 +203,6 @@ class coco(imdb):
       entry = {'width': widths[i],
                'height': self.roidb[i]['height'],
                'boxes': boxes,
-               'segs': self.roidb[i]['segs'],
                'gt_classes': self.roidb[i]['gt_classes'],
                'gt_overlaps': self.roidb[i]['gt_overlaps'],
                'flipped': True,

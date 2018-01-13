@@ -116,14 +116,12 @@ class imdb(object):
     widths = self._get_widths()
     for i in range(num_images):
       boxes = self.roidb[i]['boxes'].copy()
-      segs = self.roidb[i]['segs'].copy()
       oldx1 = boxes[:, 0].copy()
       oldx2 = boxes[:, 2].copy()
       boxes[:, 0] = widths[i] - oldx2 - 1
       boxes[:, 2] = widths[i] - oldx1 - 1
-      assert (boxes[:, 2] >= boxes[:, 0]).all()          
+      assert (boxes[:, 2] >= boxes[:, 0]).all()
       entry = {'boxes': boxes,
-               'segs': segs,
                'gt_overlaps': self.roidb[i]['gt_overlaps'],
                'gt_classes': self.roidb[i]['gt_classes'],
                'flipped': True}
@@ -166,8 +164,6 @@ class imdb(object):
                          (max_gt_overlaps == 1))[0]
       gt_boxes = self.roidb[i]['boxes'][gt_inds, :]
       gt_areas = self.roidb[i]['seg_areas'][gt_inds]
-      gt_segs = self.roidb[i]['segs'][gt_inds]
-
       valid_gt_inds = np.where((gt_areas >= area_range[0]) &
                                (gt_areas <= area_range[1]))[0]
       gt_boxes = gt_boxes[valid_gt_inds, :]
@@ -230,7 +226,6 @@ class imdb(object):
       boxes = box_list[i]
       num_boxes = boxes.shape[0]
       overlaps = np.zeros((num_boxes, self.num_classes), dtype=np.float32)
-      segs = []
 
       if gt_roidb is not None and gt_roidb[i]['boxes'].size > 0:
         gt_boxes = gt_roidb[i]['boxes']
@@ -241,7 +236,6 @@ class imdb(object):
         maxes = gt_overlaps.max(axis=1)
         I = np.where(maxes > 0)[0]
         overlaps[I, gt_classes[argmaxes[I]]] = maxes[I]
-        segs.append(gt_roidb[i]['segs'])
 
       overlaps = scipy.sparse.csr_matrix(overlaps)
       roidb.append({
@@ -250,7 +244,6 @@ class imdb(object):
         'gt_overlaps': overlaps,
         'flipped': False,
         'seg_areas': np.zeros((num_boxes,), dtype=np.float32),
-        'segs': seg,
       })
     return roidb
 
@@ -265,8 +258,6 @@ class imdb(object):
                                                  b[i]['gt_overlaps']])
       a[i]['seg_areas'] = np.hstack((a[i]['seg_areas'],
                                      b[i]['seg_areas']))
-      a[i]['segs'] = np.hstack((a[i]['segs'],
-                                     b[i]['segs']))                                     
     return a
 
   def competition_mode(self, on):
