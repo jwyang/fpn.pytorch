@@ -3,7 +3,7 @@ Pytorch implementation of Feature Pyramid Network (FPN) for Object Detection
 
 ## Introduction
 
-This project inherit the property of our [pytorch implementation of faster r-cnn](https://github.com/jwyang/faster-rcnn.pytorch). Hence, it also has the following unique features:
+This project inherits the property of our [pytorch implementation of faster r-cnn](https://github.com/jwyang/faster-rcnn.pytorch). Hence, it also has the following unique features:
 
 * **It is pure Pytorch code**. We convert all the numpy implementations to pytorch.
 
