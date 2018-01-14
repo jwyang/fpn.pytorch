@@ -329,9 +329,8 @@ if __name__ == '__main__':
                RCNN_loss_cls, RCNN_loss_bbox, \
                roi_labels = FPN(im_data, im_info, gt_boxes, num_boxes)
 
-      loss = rpn_loss_cls.sum() + rpn_loss_box.sum() \
-           + RCNN_loss_cls.sum() + RCNN_loss_bbox.sum()
-      loss /= rpn_loss_cls.size(0)
+      loss = rpn_loss_cls.mean() + rpn_loss_box.mean() \
+           + RCNN_loss_cls.mean() + RCNN_loss_bbox.mean()
       loss_temp += loss.data[0]
 
       # backward
