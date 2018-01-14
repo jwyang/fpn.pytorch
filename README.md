@@ -1,4 +1,4 @@
-# fpn.pytorch
+ fpn.pytorch
 Pytorch implementation of Feature Pyramid Network (FPN) for Object Detection
 
 ## Introduction
@@ -21,4 +21,4 @@ We benchmark our code thoroughly on three datasets: pascal voc, coco. Below are 
 
 model    | GPUs | Batch Size | lr        | lr_decay | max_epoch     |  Speed/epoch | Memory/GPU | mAP 
 ---------|-----------|----|-----------|-----|-----|-------|--------|--------
-Res-101    | 8 TitanX | 24| 1e-2 | 10  | 12  |  0.22 hr | 10327MB  | 74.2
+Res-101    | 8 TitanX | 24| 1e-2 | 10  | 12  |  0.22 hr | 9688MB  | 74.2
