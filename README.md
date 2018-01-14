@@ -17,7 +17,7 @@ This project inherit the property of our [pytorch implementation of faster r-cnn
 
 We benchmark our code thoroughly on three datasets: pascal voc, coco. Below are the results:
 
-1). PASCAL VOC 2007 (Train/Test: 07trainval/07test, scale=600, ROI Pooling/ROI Crop)
+1). PASCAL VOC 2007 (Train/Test: 07trainval/07test, scale=600, ROI Align)
 
 model    | GPUs | Batch Size | lr        | lr_decay | max_epoch     |  Speed/epoch | Memory/GPU | mAP 
 ---------|-----------|----|-----------|-----|-----|-------|--------|--------
