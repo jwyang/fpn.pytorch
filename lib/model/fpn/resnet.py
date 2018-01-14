@@ -298,7 +298,7 @@ class resnet(_FPN):
       self.RCNN_layer0.eval()
       self.RCNN_layer1.eval()
       self.RCNN_layer2.train()
-      self.RCNN_layer3.train()      
+      self.RCNN_layer3.train()
       self.RCNN_layer4.train()
 
       self.RCNN_smooth1.train()
@@ -307,10 +307,10 @@ class resnet(_FPN):
 
       self.RCNN_latlayer1.train()
       self.RCNN_latlayer2.train()
-      self.RCNN_latlayer3.train()      
+      self.RCNN_latlayer3.train()
 
       self.RCNN_toplayer.train()
-      
+
       def set_bn_eval(m):
         classname = m.__class__.__name__
         if classname.find('BatchNorm') != -1:
