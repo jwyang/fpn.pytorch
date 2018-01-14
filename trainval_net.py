@@ -163,14 +163,14 @@ if __name__ == '__main__':
     # Set the logger
     logger = Logger('./logs')
 
-  logging.basicConfig(filename="logs/"+args.net+"_"+args.dataset+"_"+str(args.session)+".log", 
+  logging.basicConfig(filename="logs/"+args.net+"_"+args.dataset+"_"+str(args.session)+".log",
         filemode='w', level=logging.DEBUG)
   logging.info(str(datetime.now()))
 
   if args.dataset == "pascal_voc":
       args.imdb_name = "voc_2007_trainval"
       args.imdbval_name = "voc_2007_test"
-      args.set_cfgs = ['FPN_ANCHOR_SCALES', '[32, 64, 128, 256, 384]', 'FPN_FEAT_STRIDES', '[4, 8, 16, 32, 48]', 'MAX_NUM_GT_BOXES', '20']
+      args.set_cfgs = ['FPN_ANCHOR_SCALES', '[32, 64, 128, 256, 512]', 'FPN_FEAT_STRIDES', '[4, 8, 16, 32, 64]', 'MAX_NUM_GT_BOXES', '20']
   elif args.dataset == "pascal_voc_0712":
       args.imdb_name = "voc_2007_trainval+voc_2012_trainval"
       args.imdbval_name = "voc_2007_test"
@@ -316,7 +316,7 @@ if __name__ == '__main__':
         lr *= args.lr_decay_gamma
 
     data_iter = iter(dataloader)
-    
+
     for step in range(iters_per_epoch):
       data = data_iter.next()
       im_data.data.resize_(data[0].size()).copy_(data[0])
@@ -352,10 +352,10 @@ if __name__ == '__main__':
           fg_cnt = torch.sum(roi_labels.data.ne(0))
           bg_cnt = roi_labels.data.numel() - fg_cnt
         else:
-          loss_rpn_cls = FPN.RCNN_rpn.rpn_loss_cls.data[0]
-          loss_rpn_box = FPN.RCNN_rpn.rpn_loss_box.data[0]
-          loss_rcnn_cls = FPN.RCNN_loss_cls.data[0]
-          loss_rcnn_box = FPN.RCNN_loss_bbox.data[0]
+          loss_rpn_cls = RCNN_rpn.rpn_loss_cls.data[0]
+          loss_rpn_box = RCNN_rpn.rpn_loss_box.data[0]
+          loss_rcnn_cls = RCNN_loss_cls.data[0]
+          loss_rcnn_box = RCNN_loss_bbox.data[0]
           fg_cnt = torch.sum(roi_labels.data.ne(0))
           bg_cnt = roi_labels.data.numel() - fg_cnt
 
